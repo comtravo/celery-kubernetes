@@ -4,11 +4,11 @@ from os.path import exists
 from setuptools import setup, find_packages
 
 setup(
-    name='dask-kubernetes',
+    name='celery-kubernetes',
     version='0.2.0',
-    description='Native Kubernetes integration for Dask',
-    url='https://github.com/dask/dask-kubernetes',
-    keywords='dask,kubernetes,distributed',
+    description='Native Kubernetes integration for Celery',
+    url='https://github.com/comtravo/celery-kubernetes',
+    keywords='celery,kubernetes',
     license='BSD',
     packages=find_packages(),
     long_description=(open('README.rst').read() if exists('README.rst') else ''),
