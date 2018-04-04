@@ -6,14 +6,13 @@ import time
 from urllib.parse import urlparse
 import uuid
 from weakref import finalize
+from pathlib import Path
 
 try:
     import yaml
 except ImportError:
     yaml = False
 
-from distributed.deploy import LocalCluster, Cluster
-from distributed.config import config
 import kubernetes
 
 from .objects import make_pod_from_dict, clean_pod_template
@@ -21,16 +20,23 @@ from .objects import make_pod_from_dict, clean_pod_template
 logger = logging.getLogger(__name__)
 
 
-class KubeCluster(Cluster):
-    """ Launch a Dask cluster on Kubernetes
+config_file = os.environ.get('CELERYK8S_CONFIG', None)
+config = {}
+if config_file is not None:
+    config_file = Path(config_file).expanduser()
+    with open(config_file, 'r') as fh:
+        config = yaml.load(fh)
 
-    This starts a local Dask scheduler and then dynamically launches
-    Dask workers on a Kubernetes cluster.
+
+class KubeCluster():
+    """ Launch a Celery cluster on Kubernetes
+
+    Dynamically launches celery workers on a Kubernetes cluster.
 
     **Environments**
 
     Your worker pod image should have a similar environment to your local
-    environment, including versions of Python, dask, cloudpickle, and any
+    environment, including versions of Python, celery, and any
     libraries that you may wish to use (like NumPy, Pandas, or Scikit-Learn).
     See examples below for suggestions on how to manage and check for this.
 
@@ -43,9 +49,9 @@ class KubeCluster(Cluster):
     Parameters
     ----------
     pod_template: kubernetes.client.V1PodSpec
-        A Kubernetes specification for a Pod for a dask worker.
+        A Kubernetes specification for a Pod for a celery worker.
     name: str (optional)
-        Name given to the pods.  Defaults to ``dask-$USER-random``
+        Name given to the pods.  Defaults to ``celery-$USER-random``
     namespace: str (optional)
         Namespace in which to launch the workers.
         Defaults to current namespace if available or "default"
@@ -58,19 +64,9 @@ class KubeCluster(Cluster):
         Listen address for local scheduler.  Defaults to 0.0.0.0
     port: int
         Port of local scheduler
-    **kwargs: dict
-        Additional keyword arguments to pass to LocalCluster
 
     Examples
     --------
-    >>> from dask_kubernetes import KubeCluster, make_pod_spec
-    >>> pod_spec = make_pod_spec(image='daskdev/dask:latest',
-    ...                          memory_limit='4G', memory_request='4G',
-    ...                          cpu_limit=1, cpu_request=1,
-    ...                          env={'EXTRA_PIP_PACKAGES': 'fastparquet git+https://github.com/dask/distributed'})
-    >>> cluster = KubeCluster(pod_spec)
-    >>> cluster.scale_up(10)
-
     You can also create clusters with worker pod specifications as dictionaries
     or stored in YAML files
 
@@ -82,37 +78,11 @@ class KubeCluster(Cluster):
 
     >>> cluster.adapt()
 
-    You can pass this cluster directly to a Dask client
-
-    >>> from dask.distributed import Client
-    >>> client = Client(cluster)
-
     You can verify that your local environment matches your worker environments
     by calling ``client.get_versions(check=True)``.  This will raise an
     informative error if versions do not match.
 
     >>> client.get_versions(check=True)
-
-    The ``daskdev/dask`` docker images support ``EXTRA_PIP_PACKAGES``,
-    ``EXTRA_APT_PACKAGES`` and ``EXTRA_CONDA_PACKAGES`` environment variables
-    to help with small adjustments to the worker environments.  We recommend
-    the use of pip over conda in this case due to a much shorter startup time.
-    These environment variables can be modified directly from the KubeCluster
-    constructor methods using the ``env=`` keyword.  You may list as many
-    packages as you like in a single string like the following:
-
-    >>> pip = 'pyarrow gcsfs git+https://github.com/dask/distributed'
-    >>> conda = '-c conda-forge scikit-learn'
-    >>> KubeCluster.from_yaml(..., env={'EXTRA_PIP_PACKAGES': pip,
-    ...                                 'ExtRA_CONDA_PACKAGES': conda})
-
-    You can also start a KubeCluster with no arguments *if* the YAML file
-    defining the worker template is referred to in the
-    ``DASKERNETES_WORKER_TEMPLATE_PATH`` environment variable
-
-        $ export DASKERNETES_WORKER_TEMPLATE_PATH=worker_template.yaml
-
-    >>> cluster = KubeCluster()  # automatically finds 'worker_template.yaml'
 
     See Also
     --------
@@ -122,15 +92,16 @@ class KubeCluster(Cluster):
     """
     def __init__(
             self,
+            celery_app,
             pod_template=None,
             name=None,
             namespace=None,
             n_workers=0,
-            host='0.0.0.0',
-            port=0,
             env=None,
             **kwargs
     ):
+        self.app = celery_app
+
         if pod_template is None:
             if 'kubernetes-worker-template-path' in config:
                 import yaml
@@ -142,9 +113,6 @@ class KubeCluster(Cluster):
                        "docstring for ways to specify workers")
                 raise ValueError(msg)
 
-        self.cluster = LocalCluster(ip=host or socket.gethostname(),
-                                    scheduler_port=port,
-                                    n_workers=0, **kwargs)
         try:
             kubernetes.config.load_incluster_config()
         except kubernetes.config.ConfigException:
@@ -153,23 +121,22 @@ class KubeCluster(Cluster):
         self.core_api = kubernetes.client.CoreV1Api()
 
         if namespace is None:
-            namespace = _namespace_default()
+            if 'namespace' in config:
+                namespace = config.get('namespace')
+            else:
+                namespace = _namespace_default()
 
         if name is None:
-            worker_name = config.get('kubernetes-worker-name', 'dask-{user}-{uuid}')
+            worker_name = config.get('kubernetes-worker-name', 'celery-{user}-{uuid}')
             name = worker_name.format(user=getpass.getuser(), uuid=str(uuid.uuid4())[:10], **os.environ)
 
         self.pod_template = clean_pod_template(pod_template)
+
         # Default labels that can't be overwritten
-        self.pod_template.metadata.labels['dask.pydata.org/cluster-name'] = name
-        self.pod_template.metadata.labels['app'] = 'dask'
-        self.pod_template.metadata.labels['component'] = 'dask-worker'
+        self.pod_template.metadata.labels['app'] = 'celery'
+        self.pod_template.metadata.labels['component'] = 'celery-worker'
         self.pod_template.metadata.namespace = namespace
 
-        self.pod_template.spec.containers[0].env.append(
-            kubernetes.client.V1EnvVar(name='DASK_SCHEDULER_ADDRESS',
-                                       value=self.scheduler_address)
-        )
         if env:
             self.pod_template.spec.containers[0].env.extend([
                 kubernetes.client.V1EnvVar(name=k, value=str(v))
@@ -254,16 +221,7 @@ class KubeCluster(Cluster):
         return self.pod_template.metadata.generate_name
 
     def __repr__(self):
-        return 'KubeCluster("%s", workers=%d)' % (self.scheduler.address,
-                                                  len(self.pods()))
-
-    @property
-    def scheduler(self):
-        return self.cluster.scheduler
-
-    @property
-    def scheduler_address(self):
-        return self.scheduler.address
+        return 'KubeCluster(workers=%d)' % (len(self.pods()))
 
     def pods(self):
         """ A list of kubernetes pods corresponding to current workers
@@ -328,6 +286,19 @@ class KubeCluster(Cluster):
         --------
         >>> cluster.scale_up(20)  # ask for twenty workers
         """
+
+        # app.control.add_consumer(
+        #      queue='baz',
+        #      exchange='ex',
+        #      exchange_type='topic',
+        #      routing_key='media.*',
+        #      options={
+        #          'queue_durable': False,
+        #          'exchange_durable': False,
+        #      },
+        #      reply=True,
+        #      destination=['w1@example.com', 'w2@example.com'])
+
         pods = pods or self.pods()
 
         for i in range(3):
@@ -361,6 +332,9 @@ class KubeCluster(Cluster):
         workers: List[str]
             List of addresses of workers to close
         """
+
+        # app.control.cancel_consumer('foo', reply=True)
+
         # Get the existing worker pods
         pods = self.pods()
 
