@@ -17,6 +17,9 @@ import kubernetes
 
 from .objects import make_pod_from_dict, clean_pod_template
 
+from celery.signals import before_task_publish, task_postrun
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -222,6 +225,16 @@ class KubeCluster():
 
     def __repr__(self):
         return 'KubeCluster(workers=%d)' % (len(self.pods()))
+
+    @before_task_publish.connect
+    def handle_before_task_publish(sender=None, headers=None, body=None, **kwargs):
+        # bring up a worker
+        pass
+
+    @task_postrun.connect
+    def handle_task_postrun(sender=None, headers=None, body=None, **kwargs):
+        # bring down the worker
+        pass
 
     def pods(self):
         """ A list of kubernetes pods corresponding to current workers
