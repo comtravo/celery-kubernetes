@@ -274,9 +274,7 @@ class KubeCluster():
         if n >= len(pods):
             return self.scale_up(n, pods=pods)
         else:
-            to_close = select_workers_to_close(self.scheduler, len(pods) - n)
-            logger.debug("Closing workers: %s", to_close)
-            return self.scale_down(to_close)
+            return self.scale_down([])
 
     def scale_up(self, n, pods=None, **kwargs):
         """
@@ -286,18 +284,6 @@ class KubeCluster():
         --------
         >>> cluster.scale_up(20)  # ask for twenty workers
         """
-
-        # app.control.add_consumer(
-        #      queue='baz',
-        #      exchange='ex',
-        #      exchange_type='topic',
-        #      routing_key='media.*',
-        #      options={
-        #          'queue_durable': False,
-        #          'exchange_durable': False,
-        #      },
-        #      reply=True,
-        #      destination=['w1@example.com', 'w2@example.com'])
 
         pods = pods or self.pods()
 
