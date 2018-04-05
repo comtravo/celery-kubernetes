@@ -95,7 +95,6 @@ class KubeCluster():
     """
     def __init__(
             self,
-            celery_app,
             pod_template=None,
             name=None,
             namespace=None,
@@ -103,8 +102,6 @@ class KubeCluster():
             env=None,
             **kwargs
     ):
-        self.app = celery_app
-
         if pod_template is None:
             if 'kubernetes-worker-template-path' in config:
                 import yaml
