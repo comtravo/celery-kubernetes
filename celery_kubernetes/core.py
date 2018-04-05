@@ -224,14 +224,18 @@ class KubeCluster():
         return 'KubeCluster(workers=%d)' % (len(self.pods()))
 
     @before_task_publish.connect
-    def handle_before_task_publish(sender=None, headers=None, body=None, **kwargs):
+    def handle_before_task_publish(self, sender=None, headers=None, body=None, **kwargs):
         # bring up a worker
-        pass
+        n = len(self.pods()) + 1
+        logger.info(f'Scaling up to {n} workers.')
+        self.scale(n)
 
     @task_postrun.connect
-    def handle_task_postrun(sender=None, headers=None, body=None, **kwargs):
+    def handle_task_postrun(self, sender=None, headers=None, body=None, **kwargs):
         # bring down the worker
-        pass
+        n = len(self.pods()) - 1
+        logger.info(f'Scaling down to {n} workers.')
+        self.scale(n)
 
     def pods(self):
         """ A list of kubernetes pods corresponding to current workers
