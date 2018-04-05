@@ -408,7 +408,7 @@ def select_workers_to_close(app, n):
     i = app.control.inspect()
     workers = i.active()
     assert n <= len(workers)
-    key = lambda key,tasks: len(tasks)
+    key = lambda key: len(key[1])
     to_close = set(sorted(workers.items(), key=key)[:n])
 
     if len(to_close) < n:
