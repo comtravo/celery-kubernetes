@@ -409,11 +409,11 @@ def select_workers_to_close(app, n):
     workers = i.active()
     assert n <= len(workers)
     key = lambda key: len(key[1])
-    to_close = set(sorted(workers.items(), key=key)[:n])
+    to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
 
     if len(to_close) < n:
         rest = sorted(workers.items(), key=key, reverse=True)
         while len(to_close) < n:
-            to_close.add(rest.pop())
+            to_close.add(rest.pop()[0])
 
-    return [address for address, _ in to_close]
+    return to_close
