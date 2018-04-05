@@ -17,8 +17,6 @@ import kubernetes
 
 from .objects import make_pod_from_dict, clean_pod_template
 
-from celery.signals import before_task_publish, task_postrun
-
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +98,13 @@ class KubeCluster():
             namespace=None,
             n_workers=0,
             env=None,
+            app=None,
             **kwargs
     ):
+        if app is None:
+            raise ValueError('Reference to the Celery App can not be None.')
+        self.app = app
+
         if pod_template is None:
             if 'kubernetes-worker-template-path' in config:
                 import yaml
@@ -274,6 +277,8 @@ class KubeCluster():
         if n >= len(pods):
             return self.scale_up(n, pods=pods)
         else:
+            to_close = select_workers_to_close(self.app, len(pods) - n)
+            logger.debug("Closing workers: %s", to_close)
             return self.scale_down([])
 
     def scale_up(self, n, pods=None, **kwargs):
@@ -319,8 +324,6 @@ class KubeCluster():
             List of addresses of workers to close
         """
 
-        # app.control.cancel_consumer('foo', reply=True)
-
         # Get the existing worker pods
         pods = self.pods()
 
@@ -353,7 +356,7 @@ class KubeCluster():
 
     def close(self):
         """ Close this cluster """
-        self.scale_down(self.cluster.scheduler.workers)
+        self.scale_down([w for w in self.app.control.inspect().active()])
         self.cluster.close()
 
     def __exit__(self, type, value, traceback):
@@ -400,15 +403,17 @@ def _namespace_default():
     return 'default'
 
 
-def select_workers_to_close(s, n):
-    """ Select n workers to close from scheduler s """
-    assert n <= len(s.workers)
-    key = lambda ws: ws.info['memory']
-    to_close = set(sorted(s.idle, key=key)[:n])
+def select_workers_to_close(app, n):
+    """ Select n workers to close from celery application app """
+    i = app.control.inspect()
+    workers = i.active()
+    assert n <= len(workers)
+    key = lambda key,tasks: len(tasks)
+    to_close = set(sorted(workers.items(), key=key)[:n])
 
     if len(to_close) < n:
-        rest = sorted(s.workers.values(), key=key, reverse=True)
+        rest = sorted(workers.items(), key=key, reverse=True)
         while len(to_close) < n:
             to_close.add(rest.pop())
 
-    return [ws.address for ws in to_close]
+    return [address for address, _ in to_close]
