@@ -275,6 +275,7 @@ class KubeCluster():
         """
         pods = self.pods()
         if n >= len(pods):
+            logger.debug("New workers: %s >= %s", n, len(pods))
             return self.scale_up(n, pods=pods)
         else:
             to_close = select_workers_to_close(self.app, len(pods) - n)
