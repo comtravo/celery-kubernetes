@@ -277,12 +277,13 @@ class KubeCluster():
         KubeCluster.scale_down
         """
         pods = self.pods()
+        logger.info("Scaling to %s workers, current workers %s", n, len(pods))
         if n >= len(pods):
-            logger.debug("New workers: %s >= %s", n, len(pods))
+            logger.info("New workers: %s >= %s", n, len(pods))
             return self.scale_up(n, pods=pods)
         else:
             to_close = select_workers_to_close(self.app, len(pods) - n)
-            logger.debug("Closing workers: %s", to_close)
+            logger.info("Closing %s workers: %s", len(to_close), to_close)
             return self.scale_down(to_close)
 
     def scale_up(self, n, pods=None, **kwargs):
