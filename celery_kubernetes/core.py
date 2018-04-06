@@ -351,6 +351,7 @@ class KubeCluster():
             # Every time we run, purge any completed pods as well as the specified ones
             if p.status.phase == 'Succeeded' or p.status.pod_ip in ips
         ]
+        logger.info('Removing pod %s', to_delete)
         if not to_delete:
             return
         for pod in to_delete:
@@ -363,8 +364,8 @@ class KubeCluster():
                 logger.info('Deleted pod: %s', pod.metadata.name)
             except kubernetes.client.rest.ApiException as e:
                 # If a pod has already been removed, just ignore the error
-                if e.status != 404:
-                    raise
+                # if e.status != 404:
+                raise
 
     def __enter__(self):
         return self
