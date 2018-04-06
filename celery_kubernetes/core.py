@@ -348,9 +348,8 @@ class KubeCluster():
         to_delete = [
             p for p in pods
             # Every time we run, purge any completed pods as well as the specified ones
-            if p.status.phase == 'Succeeded' or p.metadata.generate_name in workers
+            if p.status.phase == 'Succeeded' or p.metadata.name in workers
         ]
-        logger.info('Pods %s', [p.metadata.generate_name for p in pods])
         logger.info('Removing pods %s', to_delete)
         if not to_delete:
             return
