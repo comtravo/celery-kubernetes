@@ -413,7 +413,7 @@ def select_workers_to_close(app, n):
     """ Select n workers to close from celery application app """
     i = app.control.inspect()
     workers = i.active()
-    assert n <= len(workers)
+    assert n <= len(workers), f'Scale down to {n}, {len(workers)} workers, {len(self.pods())} pods.'
     key = lambda key: len(key[1])
     to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
 
