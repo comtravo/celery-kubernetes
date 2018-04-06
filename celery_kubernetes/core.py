@@ -422,5 +422,5 @@ def select_workers_to_close(app, n):
         while len(to_close) < n:
             to_close.add(rest.pop()[0])
 
-    logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
+    logger.info('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return to_close
