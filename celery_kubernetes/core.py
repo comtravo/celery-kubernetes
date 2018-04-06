@@ -278,7 +278,7 @@ class KubeCluster():
         KubeCluster.scale_down
         """
         pods = self.pods()
-        logger.info("Scaling to %s workers, current workers %s", n, len(pods))
+        logger.info("Scaling to %s workers, current pods %s", n, len(pods))
         if n >= len(pods):
             logger.info("New workers: %s >= %s", n, len(pods))
             return self.scale_up(n, pods=pods)
@@ -413,7 +413,8 @@ def select_workers_to_close(app, n):
     """ Select n workers to close from celery application app """
     i = app.control.inspect()
     workers = i.active()
-    assert n <= len(workers), f'Scale down to {n}, {len(workers)} workers, {len(self.pods())} pods.'
+    logger.info('%s %s %s', len(i.active()), len(i.scheduled()), len(i.registered()))
+    assert n <= len(workers), f'Can not scale down to {n} from {len(workers)} workers.'
     key = lambda key: len(key[1])
     to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
 
