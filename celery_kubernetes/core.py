@@ -106,6 +106,7 @@ class KubeCluster():
             raise ValueError('Reference to the Celery App can not be None.')
         self.app = app
 
+        logging.getLogger().setLevel(log_level)
         logger.setLevel(log_level)
 
         if pod_template is None:
@@ -421,4 +422,5 @@ def select_workers_to_close(app, n):
         while len(to_close) < n:
             to_close.add(rest.pop()[0])
 
+    logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return to_close
