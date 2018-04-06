@@ -278,7 +278,15 @@ class KubeCluster():
         KubeCluster.scale_down
         """
         pods = self.pods()
-        logger.info("Scaling to %s workers, current pods %s", n, len(pods))
+        i = self.app.control.inspect()
+        workers = i.active()
+        logger.info("Scaling to %s workers, current pods %s, current workers %s", n, len(pods), len(workers))
+
+        if len(pods) != len(workers):
+            # pods have been deployed but they have not come online yet
+            # or pods have been killed but that hasn't registered yet
+            return None
+
         if n >= len(pods):
             logger.info("New workers: %s >= %s", n, len(pods))
             return self.scale_up(n, pods=pods)
