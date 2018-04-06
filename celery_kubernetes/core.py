@@ -433,4 +433,4 @@ def select_workers_to_close(app, n):
             to_close.add(rest.pop()[0])
 
     logger.info('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
-    return to_close
+    return [w.replace(f'{app.main}@', '') for w in to_close]
