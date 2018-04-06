@@ -350,7 +350,6 @@ class KubeCluster():
             # Every time we run, purge any completed pods as well as the specified ones
             if p.status.phase == 'Succeeded' or p.metadata.name in workers
         ]
-        logger.info('Removing %s pods', len(to_delete))
         if not to_delete:
             return
         for pod in to_delete:
@@ -422,7 +421,6 @@ def select_workers_to_close(app, n):
     """ Select n workers to close from celery application app """
     i = app.control.inspect()
     workers = i.active()
-    logger.info('%s %s %s', len(i.active()), len(i.scheduled()), len(i.registered()))
     assert n <= len(workers), f'Can not scale down to {n} from {len(workers)} workers.'
     key = lambda key: len(key[1])
     to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
@@ -432,5 +430,5 @@ def select_workers_to_close(app, n):
         while len(to_close) < n:
             to_close.add(rest.pop()[0])
 
-    logger.info('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
+    logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return [w.replace(f'{app.main}@', '') for w in to_close]
