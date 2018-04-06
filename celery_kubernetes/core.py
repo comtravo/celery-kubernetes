@@ -242,6 +242,9 @@ class KubeCluster():
             label_selector=format_labels(self.pod_template.metadata.labels)
         ).items
 
+    def workers(self):
+        return self.app.control.inspect().active()
+
     def logs(self, pod):
         """ Logs from a worker pod
 
@@ -285,7 +288,6 @@ class KubeCluster():
 
         if len(pods) != len(workers):
             # pods have been deployed but they have not come online yet
-            # or pods have been killed but that hasn't registered yet
             return None
 
         if n >= len(pods):
@@ -343,14 +345,13 @@ class KubeCluster():
         pods = self.pods()
 
         # Work out pods that we are going to delete
-        # Each worker to delete is given in the form "tcp://<worker ip>:<port>"
-        # Convert this to a set of IPs
         to_delete = [
             p for p in pods
             # Every time we run, purge any completed pods as well as the specified ones
             if p.status.phase == 'Succeeded' or p.metadata.generate_name in workers
         ]
-        logger.info('Removing pod %s', to_delete)
+        logger.info('Pods %s', [p.metadata.generate_name for p in pods])
+        logger.info('Removing pods %s', to_delete)
         if not to_delete:
             return
         for pod in to_delete:
