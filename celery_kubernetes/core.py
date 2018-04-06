@@ -363,8 +363,8 @@ class KubeCluster():
                 logger.info('Deleted pod: %s', pod.metadata.name)
             except kubernetes.client.rest.ApiException as e:
                 # If a pod has already been removed, just ignore the error
-                # if e.status != 404:
-                raise
+                if e.status != 404:
+                    raise
 
     def __enter__(self):
         return self
