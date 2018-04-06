@@ -280,6 +280,7 @@ class KubeCluster():
         pods = self.pods()
         i = self.app.control.inspect()
         workers = i.active()
+        workers = workers if workers is not None else []
         logger.info("Scaling to %s workers, current pods %s, current workers %s", n, len(pods), len(workers))
 
         if len(pods) != len(workers):
