@@ -345,11 +345,10 @@ class KubeCluster():
         # Work out pods that we are going to delete
         # Each worker to delete is given in the form "tcp://<worker ip>:<port>"
         # Convert this to a set of IPs
-        ips = set(urlparse(worker).hostname for worker in workers)
         to_delete = [
             p for p in pods
             # Every time we run, purge any completed pods as well as the specified ones
-            if p.status.phase == 'Succeeded' or p.status.pod_ip in ips
+            if p.status.phase == 'Succeeded' or p.metadata.generate_name in workers
         ]
         logger.info('Removing pod %s', to_delete)
         if not to_delete:
