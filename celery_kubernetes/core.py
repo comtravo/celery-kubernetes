@@ -425,10 +425,5 @@ def select_workers_to_close(app, n):
     key = lambda key: len(key[1])
     to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
 
-    if len(to_close) < n:
-        rest = sorted(workers.items(), key=key, reverse=True)
-        while len(to_close) < n:
-            to_close.add(rest.pop()[0])
-
     logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return [w.replace(f'{app.main}@', '') for w in to_close]
