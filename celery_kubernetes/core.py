@@ -99,15 +99,11 @@ class KubeCluster():
             n_workers=0,
             env=None,
             app=None,
-            log_level='INFO',
             **kwargs
     ):
         if app is None:
             raise ValueError('Reference to the Celery App can not be None.')
         self.app = app
-
-        logging.getLogger().setLevel(log_level)
-        logger.setLevel(log_level)
 
         if pod_template is None:
             if 'kubernetes-worker-template-path' in config:
