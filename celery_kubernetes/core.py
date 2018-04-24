@@ -418,8 +418,7 @@ def select_workers_to_close(app, n):
     i = app.control.inspect()
     workers = i.active()
     assert n <= len(workers), f'Can not scale down to {n} from {len(workers)} workers.'
-    key = lambda key: len(key[1])
-    to_close = set([w for w, _ in sorted(workers.items(), key=key)][:n])
+    to_close = set([w for w, tasks in workers.items() if len(tasks) == 0][:n])
 
     logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return [w.replace(f'{app.main}@', '') for w in to_close]
