@@ -416,9 +416,14 @@ def _namespace_default():
 def select_workers_to_close(app, n):
     """ Select n workers to close from celery application app """
     i = app.control.inspect()
-    workers = i.active()
-    assert n <= len(workers), f'Can not scale down to {n} from {len(workers)} workers.'
-    to_close = set([w for w, tasks in workers.items() if len(tasks) == 0][:n])
+    active = i.active()
+    reserved = i.reserved()
+    assert n <= len(active) + len(reserved), f'Can not scale down to {n} from {len(workers)} workers.'
+    workers = {w: active[w] + reserved[w] for w in active}
 
+    # only close workers that are not currently processing something and have not reserved any tasks
+    to_close = set([w for w, tasks in workers.items() if len(tasks) == 0][:n])
+    if not to_close:
+        logger.warning(f'Did not find any idle workers to close: {workers}')
     logger.debug('Suggest closing workers %s', [(w, len(workers[w])) for w in to_close])
     return [w.replace(f'{app.main}@', '') for w in to_close]
